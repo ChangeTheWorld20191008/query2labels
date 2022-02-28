@@ -1,5 +1,13 @@
+torch==1.9.0
+torchvision==0.10.0
 tqdm
 einops
 addict
 yapf
 inplace_abn
+randaugment
+termcolor
+scipy
+timm
+pyyaml
+pycocotools

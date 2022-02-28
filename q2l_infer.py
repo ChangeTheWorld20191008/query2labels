@@ -1,5 +1,6 @@
 import argparse
-import os, sys
+import os
+import sys
 import random
 import datetime
 import time
@@ -30,24 +31,28 @@ from utils.slconfig import get_raw_dict
 
 
 def parser_args():
-    available_models = ['Q2L-R101-448', 'Q2L-R101-576', 'Q2L-TResL-448', 'Q2L-TResL_22k-448', 'Q2L-SwinL-384', 'Q2L-CvT_w24-384']
+    available_models = ['Q2L-R101-448', 'Q2L-R101-576', 'Q2L-TResL-448',
+                        'Q2L-TResL_22k-448', 'Q2L-SwinL-384', 'Q2L-CvT_w24-384']
 
-    parser = argparse.ArgumentParser(description='Query2Label for multilabel classification')
-    parser.add_argument('--dataname', help='dataname', default='coco14', choices=['coco14'])
-    parser.add_argument('--dataset_dir', help='dir of dataset', default='/comp_robot/liushilong/data/COCO14/')
-    
+    parser = argparse.ArgumentParser(
+        description='Query2Label for multilabel classification')
+    parser.add_argument('--dataname', help='dataname',
+                        default='coco14', choices=['coco14'])
+    parser.add_argument('--dataset_dir', help='dir of dataset',
+                        default='/comp_robot/liushilong/data/COCO14/')
+
     parser.add_argument('--img_size', default=448, type=int,
                         help='image size. default(448)')
     parser.add_argument('-a', '--arch', metavar='ARCH', default='Q2L-R101-448',
                         choices=available_models,
                         help='model architecture: ' +
-                            ' | '.join(available_models) +
-                            ' (default: Q2L-R101-448)')
+                        ' | '.join(available_models) +
+                        ' (default: Q2L-R101-448)')
     parser.add_argument('--config', type=str, help='config file')
 
-    parser.add_argument('--output', metavar='DIR', 
+    parser.add_argument('--output', metavar='DIR',
                         help='path to output folder')
-    parser.add_argument('--loss', metavar='LOSS', default='asl', 
+    parser.add_argument('--loss', metavar='LOSS', default='asl',
                         choices=['asl'],
                         help='loss functin')
     parser.add_argument('--num_class', default=80, type=int,
@@ -57,7 +62,7 @@ def parser_args():
     parser.add_argument('-b', '--batch-size', default=16, type=int,
                         metavar='N',
                         help='mini-batch size (default: 16), this is the total '
-                            'batch size of all GPUs')
+                        'batch size of all GPUs')
     parser.add_argument('-p', '--print-freq', default=10, type=int,
                         metavar='N', help='print frequency (default: 10)')
     parser.add_argument('--resume', type=str, metavar='PATH',
@@ -67,7 +72,7 @@ def parser_args():
                         help='use pre-trained model. default is False. ')
 
     parser.add_argument('--eps', default=1e-5, type=float,
-                    help='eps for focal loss (default: 1e-5)')
+                        help='eps for focal loss (default: 1e-5)')
 
     # distribution training
     parser.add_argument('--world-size', default=-1, type=int,
@@ -78,16 +83,18 @@ def parser_args():
                         help='url used to set up distributed training')
     parser.add_argument('--seed', default=None, type=int,
                         help='seed for initializing training. ')
-    parser.add_argument("--local_rank", type=int, help='local rank for DistributedDataParallel')
+    parser.add_argument("--local_rank", type=int,
+                        help='local rank for DistributedDataParallel')
     parser.add_argument('--amp', action='store_true',
                         help='use mixture precision.')
     # data aug
     parser.add_argument('--orid_norm', action='store_true', default=False,
                         help='using oridinary norm of [0,0,0] and [1,1,1] for mean and std.')
-
+    parser.add_argument('--cutout', action='store_true', default=False,
+                        help='apply cutout')
 
     # * Transformer
-    parser.add_argument('--enc_layers', default=1, type=int, 
+    parser.add_argument('--enc_layers', default=1, type=int,
                         help="Number of encoding layers in the transformer")
     parser.add_argument('--dec_layers', default=2, type=int,
                         help="Number of decoding layers in the transformer")
@@ -104,11 +111,11 @@ def parser_args():
                         help="Type of positional embedding to use on top of the image features")
     parser.add_argument('--backbone', default='resnet101', type=str,
                         help="Name of the convolutional backbone to use")
-    parser.add_argument('--keep_other_self_attn_dec', action='store_true', 
+    parser.add_argument('--keep_other_self_attn_dec', action='store_true',
                         help='keep the other self attention modules in transformer decoders, which will be removed default.')
     parser.add_argument('--keep_first_self_attn_dec', action='store_true',
                         help='keep the first self attention module in transformer decoders, which will be removed default.')
-    parser.add_argument('--keep_input_proj', action='store_true', 
+    parser.add_argument('--keep_input_proj', action='store_true',
                         help="keep the input projection layer. Needed when the channel of image features is different from hidden_dim of Transformer layers.")
     args = parser.parse_args()
 
@@ -116,10 +123,11 @@ def parser_args():
     if args.config:
         with open(args.config, 'r') as f:
             cfg_dict = json.load(f)
-        for k,v in cfg_dict.items():
+        for k, v in cfg_dict.items():
             setattr(args, k, v)
 
     return args
+
 
 def get_args():
     args = parser_args()
@@ -128,9 +136,10 @@ def get_args():
 
 best_mAP = 0
 
+
 def main():
     args = get_args()
-    
+
     if 'WORLD_SIZE' in os.environ:
         assert args.world_size > 0, 'please set --world-size and --rank in the command line'
         # launch by torch.distributed.launch
@@ -139,7 +148,8 @@ def main():
         local_world_size = int(os.environ['WORLD_SIZE'])
         args.world_size = args.world_size * local_world_size
         args.rank = args.rank * local_world_size + args.local_rank
-        print('world size: {}, world rank: {}, local rank: {}'.format(args.world_size, args.rank, args.local_rank))
+        print('world size: {}, world rank: {}, local rank: {}'.format(
+            args.world_size, args.rank, args.local_rank))
         print('os.environ:', os.environ)
     else:
         # single process, useful for debugging
@@ -152,21 +162,22 @@ def main():
         random.seed(args.seed)
         torch.manual_seed(args.seed)
         np.random.seed(args.seed)
-    
+
     torch.cuda.set_device(args.local_rank)
     print('| distributed init (local_rank {}): {}'.format(
         args.local_rank, args.dist_url), flush=True)
-    torch.distributed.init_process_group(backend='nccl', init_method=args.dist_url, 
-                                world_size=args.world_size, rank=args.rank)
+    torch.distributed.init_process_group(backend='nccl', init_method=args.dist_url,
+                                         world_size=args.world_size, rank=args.rank)
     cudnn.benchmark = True
-    
+
     # set output dir and logger
     if not args.output:
-        args.output = (f"logs/{args.arch}-{datetime.datetime.now()}").replace(' ', '-')
+        args.output = (
+            f"logs/{args.arch}-{datetime.datetime.now()}").replace(' ', '-')
     os.makedirs(args.output, exist_ok=True)
-    logger = setup_logger(output=args.output, distributed_rank=dist.get_rank(), color=False, name="Q2L")
+    logger = setup_logger(
+        output=args.output, distributed_rank=dist.get_rank(), color=False, name="Q2L")
     logger.info("Command: "+' '.join(sys.argv))
-
 
     # save config to outputdir
     if dist.get_rank() == 0:
@@ -181,48 +192,50 @@ def main():
 
     return main_worker(args, logger)
 
+
 def main_worker(args, logger):
     global best_mAP
 
     # build model
     model = build_q2l(args)
     model = model.cuda()
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], broadcast_buffers=False)
+    model = torch.nn.parallel.DistributedDataParallel(
+        model, device_ids=[args.local_rank], broadcast_buffers=False)
     criterion = models.aslloss.AsymmetricLossOptimized(
         gamma_neg=args.gamma_neg, gamma_pos=args.gamma_pos,
         disable_torch_grad_focal_loss=True,
         eps=args.eps,
     )
 
-
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
             logger.info("=> loading checkpoint '{}'".format(args.resume))
-            checkpoint = torch.load(args.resume, map_location=torch.device(dist.get_rank()))
+            checkpoint = torch.load(
+                args.resume, map_location=torch.device(dist.get_rank()))
             state_dict = clean_state_dict(checkpoint['state_dict'])
             model.module.load_state_dict(state_dict, strict=True)
             del checkpoint
             del state_dict
-            torch.cuda.empty_cache() 
+            torch.cuda.empty_cache()
         else:
             logger.info("=> no checkpoint found at '{}'".format(args.resume))
 
     # Data loading code
     _, val_dataset = get_datasets(args)
-    assert args.batch_size // dist.get_world_size() == args.batch_size / dist.get_world_size(), 'Batch size is not divisible by num of gpus.'
-    val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
+    assert args.batch_size // dist.get_world_size() == args.batch_size / \
+        dist.get_world_size(), 'Batch size is not divisible by num of gpus.'
+    val_sampler = torch.utils.data.distributed.DistributedSampler(
+        val_dataset, shuffle=False)
     val_loader = torch.utils.data.DataLoader(
         val_dataset, batch_size=args.batch_size // dist.get_world_size(), shuffle=False,
         num_workers=args.workers, pin_memory=True, sampler=val_sampler)
 
-
     # for eval only
     _, mAP = validate(val_loader, model, criterion, args, logger)
     logger.info(' * mAP {mAP:.1f}'
-            .format(mAP=mAP))
+                .format(mAP=mAP))
     return
-    
 
 
 @torch.no_grad()
@@ -241,7 +254,7 @@ def validate(val_loader, model, criterion, args, logger):
     saved_data = []
     with torch.no_grad():
         end = time.time()
-        for i, (images, target) in enumerate(val_loader):
+        for i, (images, target, _) in enumerate(val_loader):
             images = images.cuda(non_blocking=True)
             target = target.cuda(non_blocking=True)
 
@@ -256,7 +269,8 @@ def validate(val_loader, model, criterion, args, logger):
             mem.update(torch.cuda.max_memory_allocated() / 1024.0 / 1024.0)
 
             # save some data
-            _item = torch.cat((output_sm.detach().cpu(), target.detach().cpu()), 1)
+            _item = torch.cat(
+                (output_sm.detach().cpu(), target.detach().cpu()), 1)
             saved_data.append(_item)
 
             # measure elapsed time
@@ -283,10 +297,12 @@ def validate(val_loader, model, criterion, args, logger):
 
         if dist.get_rank() == 0:
             print("Calculating mAP:")
-            filenamelist = ['saved_data_tmp.{}.txt'.format(ii) for ii in range(dist.get_world_size())]
-            metric_func = voc_mAP                
-            mAP, aps = metric_func([os.path.join(args.output, _filename) for _filename in filenamelist], args.num_class, return_each=True)
-            
+            filenamelist = ['saved_data_tmp.{}.txt'.format(
+                ii) for ii in range(dist.get_world_size())]
+            metric_func = voc_mAP
+            mAP, aps = metric_func([os.path.join(args.output, _filename)
+                                    for _filename in filenamelist], args.num_class, return_each=True)
+
             logger.info("  mAP: {}".format(mAP))
             logger.info("   aps: {}".format(np.array2string(aps, precision=5)))
         else:
@@ -319,6 +335,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self, name, fmt=':f', val_only=False):
         self.name = name
         self.fmt = fmt
@@ -362,10 +379,12 @@ class ProgressMeter(object):
         return '[' + fmt + '/' + fmt.format(num_batches) + ']'
 
 
-def kill_process(filename:str, holdpid:int) -> List[str]:
+def kill_process(filename: str, holdpid: int) -> List[str]:
     # used for training only.
-    import subprocess, signal
-    res = subprocess.check_output("ps aux | grep {} | grep -v grep | awk '{{print $2}}'".format(filename), shell=True, cwd="./")
+    import subprocess
+    import signal
+    res = subprocess.check_output(
+        "ps aux | grep {} | grep -v grep | awk '{{print $2}}'".format(filename), shell=True, cwd="./")
     res = res.decode('utf-8')
     idlist = [i.strip() for i in res.split('\n') if i != '']
     print("kill: {}".format(idlist))
@@ -373,6 +392,7 @@ def kill_process(filename:str, holdpid:int) -> List[str]:
         if idname != str(holdpid):
             os.kill(int(idname), signal.SIGKILL)
     return idlist
+
 
 if __name__ == '__main__':
     main()
